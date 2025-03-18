@@ -6,19 +6,29 @@ use App\Http\Resources\ArticleCollection;
 use App\Http\Resources\ArticleResource;
 use App\Http\Resources\UserArticleCollection;
 use App\Models\Article;
+use App\Services\ArticleService;
+use App\Services\UserService;
 use Illuminate\Http\Request;
 
 class ArticleController extends Controller
 {
+    protected $articleService;
+    protected $userService;
+    public function __construct(ArticleService $articleService, UserService $userService)
+    {
+        $this->articleService = $articleService;
+        $this->userService = $userService;
+    }
+
     public function index()
     {
-        $articles=Article::with('user')->paginate(10);
+        $articles=$this->articleService->getAllArticles();
         return new ArticleCollection($articles);
         
     }
     public function indexUser(Request $request)
     {
-        $articles = $request->user()->articles()->with('user')->paginate(10);
+        $articles=$this->userService->getUserArticles($request->user());
         return new UserArticleCollection($articles);
     }
     
@@ -30,25 +40,25 @@ class ArticleController extends Controller
             'content' => 'required|string',
         ]);
 
-        $article = $request->user()->articles()->create($validated);
-
+        $article = $this->articleService->createArticle($request->user(),$validated);
         return new ArticleResource($article);
     }
 
     public function show(Article $article)
-    {
-        return new ArticleResource($article->load('user'));
+    {   $article=$this->articleService->getArticle($article);
+        return new ArticleResource($article);
     }
 
     public function update(Request $request, Article $article)
     {
-        $article->update($request->only('title', 'content'));
+        $data=$request->only('title','content');
+       $article=$this->articleService->updateArticle($article,$data);
         return new ArticleResource($article);
     }
 
     public function destroy(Article $article)
     {
-        $article->delete();
+        $this->articleService->deleteArticle($article);
         return response()->json(null, 204);
     }
 }
